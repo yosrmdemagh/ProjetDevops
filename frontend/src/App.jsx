@@ -1,480 +1,263 @@
-import { useState, useEffect } from 'react';
-import { Package, Clipboard, Settings, Search, Trash2, Edit2, Plus, X, Menu, LogOut } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import axios from 'axios';
 
 function App() {
-  // Données de démonstration
-  const initialProducts = [
-    { _id: '1', name: 'Écran LCD 24"', description: 'Écran haute résolution pour PC', quantity: '15', price: '450' },
-    { _id: '2', name: 'Clavier mécanique', description: 'Clavier gaming rétroéclairé', quantity: '23', price: '180' },
-    { _id: '3', name: 'Souris sans fil', description: 'Souris ergonomique', quantity: '7', price: '95' },
-    { _id: '4', name: 'Disque SSD 1TB', description: 'Stockage haute vitesse', quantity: '4', price: '350' },
-    { _id: '5', name: 'Carte graphique', description: 'GPU pour gaming et design', quantity: '2', price: '1200' }
-  ];
-
-  const [products, setProducts] = useState(initialProducts);
-  const [filteredProducts, setFilteredProducts] = useState(initialProducts);
+  const [products, setProducts] = useState([]);
   const [form, setForm] = useState({ name: '', description: '', quantity: '', price: '' });
   const [editId, setEditId] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [activeTab, setActiveTab] = useState('products');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (searchTerm === '') {
-      setFilteredProducts(products);
-    } else {
-      setFilteredProducts(
-        products.filter(product =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.description.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      );
-    }
-  }, [searchTerm, products]);
+    fetchProducts();
+  }, []);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (editId) {
-      // Simuler une mise à jour
-      setProducts(products.map(p => p._id === editId ? { ...form, _id: editId } : p));
-      setEditId(null);
-    } else {
-      // Simuler un ajout
-      const newId = (Math.max(...products.map(p => parseInt(p._id))) + 1).toString();
-      setProducts([...products, { ...form, _id: newId }]);
+  const fetchProducts = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get('http://localhost:5000/api/products');
+      setProducts(res.data);
+      setError(null);
+    } catch (err) {
+      console.error("Erreur lors du chargement des produits:", err);
+      setError("Impossible de charger les produits. Veuillez vérifier la connexion au serveur.");
+    } finally {
+      setLoading(false);
     }
-    setForm({ name: '', description: '', quantity: '', price: '' });
-    setShowForm(false);
   };
 
-  const handleDelete = (id) => {
-    // Simuler une suppression
-    setProducts(products.filter(p => p._id !== id));
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editId) {
+        await axios.put(`http://localhost:5000/api/products/${editId}`, form);
+        setEditId(null);
+      } else {
+        await axios.post('http://localhost:5000/api/products', form);
+      }
+      setForm({ name: '', description: '', quantity: '', price: '' });
+      fetchProducts();
+    } catch (err) {
+      console.error("Erreur lors de la sauvegarde:", err);
+      setError("Erreur lors de la sauvegarde du produit.");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce produit?")) {
+      try {
+        await axios.delete(`http://localhost:5000/api/products/${id}`);
+        fetchProducts();
+      } catch (err) {
+        console.error("Erreur lors de la suppression:", err);
+        setError("Erreur lors de la suppression du produit.");
+      }
+    }
   };
 
   const handleEdit = (product) => {
     setForm(product);
     setEditId(product._id);
-    setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const resetForm = () => {
-    setForm({ name: '', description: '', quantity: '', price: '' });
-    setEditId(null);
-    setShowForm(false);
-  };
-
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <nav className="bg-indigo-600 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between h-16">
+      <nav className="bg-indigo-600 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
-              <Package className="h-8 w-8" />
-              <span className="ml-2 text-xl font-bold">StockManager</span>
+              <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m-8-4l8 4m8 0l-8 4-8-4" />
+              </svg>
+              <span className="ml-2 text-xl font-bold text-white">StockManager</span>
             </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-4">
-              <button
-                onClick={() => setActiveTab('products')}
-                className={`px-3 py-2 rounded-md font-medium ${
-                  activeTab === 'products' ? 'bg-indigo-700' : 'hover:bg-indigo-500'
-                }`}
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={fetchProducts} 
+                className="text-white hover:text-indigo-100 focus:outline-none focus:ring"
               >
-                <div className="flex items-center">
-                  <Clipboard className="mr-2 h-5 w-5" />
-                  Produits
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab('settings')}
-                className={`px-3 py-2 rounded-md font-medium ${
-                  activeTab === 'settings' ? 'bg-indigo-700' : 'hover:bg-indigo-500'
-                }`}
-              >
-                <div className="flex items-center">
-                  <Settings className="mr-2 h-5 w-5" />
-                  Paramètres
-                </div>
-              </button>
-              <button className="px-3 py-2 rounded-md font-medium hover:bg-indigo-500">
-                <div className="flex items-center">
-                  <LogOut className="mr-2 h-5 w-5" />
-                  Déconnexion
-                </div>
-              </button>
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden flex items-center">
-              <button
-                onClick={toggleMobileMenu}
-                className="inline-flex items-center justify-center p-2 rounded-md hover:bg-indigo-500"
-              >
-                <Menu className="h-6 w-6" />
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
               </button>
             </div>
           </div>
         </div>
-
-        {/* Mobile menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-indigo-700 pb-3 px-4">
-            <div className="space-y-1">
-              <button
-                onClick={() => {
-                  setActiveTab('products');
-                  setMobileMenuOpen(false);
-                }}
-                className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                  activeTab === 'products' ? 'bg-indigo-800' : 'hover:bg-indigo-600'
-                }`}
-              >
-                <div className="flex items-center">
-                  <Clipboard className="mr-2 h-5 w-5" />
-                  Produits
-                </div>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('settings');
-                  setMobileMenuOpen(false);
-                }}
-                className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                  activeTab === 'settings' ? 'bg-indigo-800' : 'hover:bg-indigo-600'
-                }`}
-              >
-                <div className="flex items-center">
-                  <Settings className="mr-2 h-5 w-5" />
-                  Paramètres
-                </div>
-              </button>
-              <button
-                className="block px-3 py-2 rounded-md text-base font-medium w-full text-left hover:bg-indigo-600"
-              >
-                <div className="flex items-center">
-                  <LogOut className="mr-2 h-5 w-5" />
-                  Déconnexion
-                </div>
-              </button>
-            </div>
-          </div>
-        )}
       </nav>
 
-      {/* Main content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {activeTab === 'products' && (
-          <>
-            <div className="bg-white shadow rounded-lg p-6 mb-6">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-                <h1 className="text-2xl font-bold text-gray-800">
-                  Gestion du Stock
-                </h1>
-                <div className="mt-4 md:mt-0 flex flex-col sm:flex-row gap-3">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Rechercher un produit..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 w-full"
-                    />
-                    <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+      <main className="max-w-6xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          <div className="bg-white shadow rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              {editId ? 'Modifier le produit' : 'Ajouter un nouveau produit'}
+            </h2>
+            
+            {error && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
                   </div>
-                  <button
-                    onClick={() => setShowForm(!showForm)}
-                    className="flex items-center justify-center bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                  <div className="ml-3">
+                    <p className="text-sm text-red-700">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700">Nom du produit</label>
+                <input 
+                  id="name"
+                  type="text" 
+                  placeholder="Nom" 
+                  value={form.name} 
+                  onChange={e => setForm({ ...form, name: e.target.value })} 
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
+                <textarea 
+                  id="description"
+                  placeholder="Description" 
+                  value={form.description} 
+                  onChange={e => setForm({ ...form, description: e.target.value })} 
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  rows="2"
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">Quantité</label>
+                  <input 
+                    id="quantity"
+                    type="number" 
+                    placeholder="Quantité" 
+                    value={form.quantity} 
+                    onChange={e => setForm({ ...form, quantity: e.target.value })} 
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    min="0"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="price" className="block text-sm font-medium text-gray-700">Prix (DT)</label>
+                  <input 
+                    id="price"
+                    type="number" 
+                    placeholder="Prix" 
+                    value={form.price} 
+                    onChange={e => setForm({ ...form, price: e.target.value })} 
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end">
+                {editId && (
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setForm({ name: '', description: '', quantity: '', price: '' });
+                      setEditId(null);
+                    }}
+                    className="mr-3 bg-gray-200 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
-                    {showForm ? (
-                      <>
-                        <X className="mr-2 h-5 w-5" />
-                        Annuler
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="mr-2 h-5 w-5" />
-                        Ajouter
-                      </>
-                    )}
+                    Annuler
                   </button>
-                </div>
-              </div>
-
-              {showForm && (
-                <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-                  <h2 className="text-lg font-semibold mb-4">
-                    {editId ? "Modifier le produit" : "Ajouter un nouveau produit"}
-                  </h2>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Nom du produit
-                        </label>
-                        <input
-                          placeholder="Nom"
-                          value={form.name}
-                          onChange={(e) => setForm({ ...form, name: e.target.value })}
-                          className="border border-gray-300 rounded-lg p-2 w-full focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Description
-                        </label>
-                        <input
-                          placeholder="Description"
-                          value={form.description}
-                          onChange={(e) => setForm({ ...form, description: e.target.value })}
-                          className="border border-gray-300 rounded-lg p-2 w-full focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Quantité
-                        </label>
-                        <input
-                          type="number"
-                          placeholder="Quantité"
-                          value={form.quantity}
-                          onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-                          className="border border-gray-300 rounded-lg p-2 w-full focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Prix (DT)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="Prix"
-                          value={form.price}
-                          onChange={(e) => setForm({ ...form, price: e.target.value })}
-                          className="border border-gray-300 rounded-lg p-2 w-full focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end space-x-3">
-                      <button
-                        onClick={resetForm}
-                        className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors"
-                      >
-                        Annuler
-                      </button>
-                      <button
-                        onClick={handleSubmit}
-                        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-                      >
-                        {editId ? "Mettre à jour" : "Ajouter"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="overflow-x-auto">
-                {filteredProducts.length > 0 ? (
-                  <table className="min-w-full bg-white rounded-lg overflow-hidden">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="py-3 px-4 text-left text-gray-700 font-medium">Produit</th>
-                        <th className="py-3 px-4 text-left text-gray-700 font-medium">Description</th>
-                        <th className="py-3 px-4 text-left text-gray-700 font-medium">Quantité</th>
-                        <th className="py-3 px-4 text-left text-gray-700 font-medium">Prix</th>
-                        <th className="py-3 px-4 text-center text-gray-700 font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {filteredProducts.map((product) => (
-                        <tr key={product._id} className="hover:bg-gray-50">
-                          <td className="py-3 px-4 font-medium">{product.name}</td>
-                          <td className="py-3 px-4 text-gray-600">{product.description}</td>
-                          <td className="py-3 px-4">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              parseInt(product.quantity) <= 5 
-                                ? 'bg-red-100 text-red-800' 
-                                : parseInt(product.quantity) <= 20 
-                                ? 'bg-yellow-100 text-yellow-800' 
-                                : 'bg-green-100 text-green-800'
-                            }`}>
-                              {product.quantity}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">{product.price} DT</td>
-                          <td className="py-3 px-4">
-                            <div className="flex justify-center space-x-2">
-                              <button
-                                onClick={() => handleEdit(product)}
-                                className="p-1 rounded-md bg-blue-100 text-blue-600 hover:bg-blue-200"
-                                title="Modifier"
-                              >
-                                <Edit2 className="h-5 w-5" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(product._id)}
-                                className="p-1 rounded-md bg-red-100 text-red-600 hover:bg-red-200"
-                                title="Supprimer"
-                              >
-                                <Trash2 className="h-5 w-5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">Aucun produit trouvé</p>
-                  </div>
                 )}
+                <button 
+                  type="submit" 
+                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  {editId ? 'Mettre à jour' : 'Ajouter'}
+                </button>
               </div>
-            </div>
-          </>
-        )}
-
-        {activeTab === 'settings' && (
-          <div className="bg-white shadow rounded-lg p-6">
-            <h1 className="text-2xl font-bold text-gray-800 mb-6">Paramètres</h1>
-            <p className="text-gray-600 mb-4">Page de paramètres en construction...</p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h2 className="text-lg font-semibold mb-3 text-gray-800">Informations de l'entreprise</h2>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l'entreprise</label>
-                    <input 
-                      type="text" 
-                      placeholder="Votre entreprise" 
-                      className="border border-gray-300 rounded-lg p-2 w-full focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
-                    <input 
-                      type="text" 
-                      placeholder="Adresse" 
-                      className="border border-gray-300 rounded-lg p-2 w-full focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
-                    <input 
-                      type="text" 
-                      placeholder="Téléphone" 
-                      className="border border-gray-300 rounded-lg p-2 w-full focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h2 className="text-lg font-semibold mb-3 text-gray-800">Notifications</h2>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-700">Alerte stock faible</span>
-                    <div className="relative inline-block w-10 align-middle select-none">
-                      <input type="checkbox" className="sr-only" id="toggle-1" />
-                      <label htmlFor="toggle-1" className="block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-700">Rapport quotidien</span>
-                    <div className="relative inline-block w-10 align-middle select-none">
-                      <input type="checkbox" className="sr-only" id="toggle-2" />
-                      <label htmlFor="toggle-2" className="block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-700">Notifications par email</span>
-                    <div className="relative inline-block w-10 align-middle select-none">
-                      <input type="checkbox" className="sr-only" id="toggle-3" />
-                      <label htmlFor="toggle-3" className="block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h2 className="text-lg font-semibold mb-3 text-gray-800">Seuils d'alerte</h2>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Seuil de stock faible</label>
-                    <input 
-                      type="number" 
-                      placeholder="5" 
-                      className="border border-gray-300 rounded-lg p-2 w-full focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Seuil de réapprovisionnement</label>
-                    <input 
-                      type="number" 
-                      placeholder="10" 
-                      className="border border-gray-300 rounded-lg p-2 w-full focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h2 className="text-lg font-semibold mb-3 text-gray-800">Options d'affichage</h2>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Produits par page</label>
-                    <select className="border border-gray-300 rounded-lg p-2 w-full focus:ring-indigo-500 focus:border-indigo-500">
-                      <option>10</option>
-                      <option>20</option>
-                      <option>50</option>
-                      <option>100</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Devise</label>
-                    <select className="border border-gray-300 rounded-lg p-2 w-full focus:ring-indigo-500 focus:border-indigo-500">
-                      <option>DT (Dinar Tunisien)</option>
-                      <option>EUR (Euro)</option>
-                      <option>USD (Dollar US)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-end mt-6">
-              <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
-                Enregistrer les paramètres
-              </button>
-            </div>
+            </form>
           </div>
-        )}
-      </div>
-      
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center mb-4 md:mb-0">
-              <Package className="h-6 w-6 text-indigo-600" />
-              <span className="ml-2 font-semibold text-gray-800">StockManager</span>
-            </div>
-            <div className="text-sm text-gray-500">
-              © 2025 StockManager. Tous droits réservés.
-            </div>
+          
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Inventaire des produits</h2>
+            
+            {loading ? (
+              <div className="text-center py-4">
+                <svg className="animate-spin h-8 w-8 text-indigo-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+            ) : products.length === 0 ? (
+              <div className="text-center py-4 text-gray-500">
+                Aucun produit trouvé. Commencez par en ajouter un!
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantité</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {products.map(product => (
+                      <tr key={product._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                          <div className="text-sm text-gray-500">{product.description}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            parseInt(product.quantity) === 0 
+                              ? 'bg-red-100 text-red-800' 
+                              : parseInt(product.quantity) < 10 
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-green-100 text-green-800'
+                          }`}>
+                            {product.quantity}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {product.price} DT
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button 
+                            onClick={() => handleEdit(product)} 
+                            className="text-indigo-600 hover:text-indigo-900 mr-3"
+                          >
+                            Modifier
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(product._id)} 
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Supprimer
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
-      </footer>
+      </main>
     </div>
   );
 }
